@@ -106,6 +106,30 @@ describe('deletion of a blog', () => {
 })
 
 
+describe('update of a blog', () => {
+    test('succeeds with statuscode 201 if likes property is updated', async () => {
+        const blogsAtStart = await helper.blogsInDB();
+        const blogToUpdate = blogsAtStart[0];
+
+        const newBlog = {
+            ...blogToUpdate,
+            likes: blogToUpdate.likes + 1
+        };
+
+        const updatedBlog = await api
+          .put(`/api/blogs/${blogToUpdate.id}`)
+          .send(newBlog)
+          .expect(201)
+          .expect("Content-Type", /application\/json/);
+
+        const blogsToEnd = await helper.blogsInDB();
+        expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length);
+
+        expect(updatedBlog.body.likes).toBe(blogToUpdate.likes + 1)
+    })
+})
+
+
 
 
 
