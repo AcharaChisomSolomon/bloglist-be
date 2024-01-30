@@ -49,6 +49,42 @@ test('can add a new blog successfully', async () => {
     expect(titles).toContain('Type warlords')
 })
 
+test('makes likes property 0 if not given explicitly', async () => {
+    const blogToAdd = {
+      title: "Type warlords",
+      author: "Robert C. Martins",
+      url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
+    };
+
+    const response = await api
+        .post('/api/blogs')
+        .send(blogToAdd)
+        .expect(201)
+        .expect('Content-Type', /application\/json/)
+    
+    const blogsToEnd = await helper.blogsInDB();
+    expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length + 1);
+
+    expect(response.body.likes).toBe(0);
+})
+
+test('does not add blog if "title" or "url" properties are missing', async () => {
+    const blogToAdd = {
+    //   title: "",
+      author: "Robert C. Martins",
+    //   url: "",
+      likes: 20,
+    };
+
+    await api
+        .post("/api/blogs")
+        .send(blogToAdd)
+        .expect(400)
+    
+    const blogsToEnd = await helper.blogsInDB();
+    expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length);
+}, 100000)
+
 
 
 afterAll(async () => {
