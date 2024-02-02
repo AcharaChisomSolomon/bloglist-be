@@ -10,11 +10,20 @@ const User = require('../models/user')
 
 
 beforeEach(async () => {
-    await Blog.deleteMany({})
+  await Blog.deleteMany({})
+  await User.deleteMany({});
 
-    const blogObjects = helper.listWithManyBlogs.map(b => new Blog(b))
-    const promiseArray = blogObjects.map(b => b.save())
-    await Promise.all(promiseArray)
+  const passwordHash = await bcrypt.hash("sekret", 10);
+  const user = new User({ username: "root", passwordHash });
+
+  const newUser = await user.save();
+
+  const blogObjects = helper.listWithManyBlogs.map(b => new Blog({ ...b, userId: newUser._id }))
+  for (let b of blogObjects) {
+    const newBlog = await b.save()
+    newUser.blogs = newUser.blogs.concat(newBlog._id)
+    await newUser.save()
+  }
 })
 
 
@@ -34,59 +43,80 @@ describe('when there is initially some blogs saved', () => {
 
 
 describe('addition of a new blog', () => {
-    test("succeeds with valid data", async () => {
-      const blogToAdd = {
-        title: "Type warlords",
-        author: "Robert C. Martins",
-        url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
-        likes: 20,
-      };
+  test("succeeds with valid data", async () => {
+    const usersAtStart = await helper.usersInDB()
+    const userToWrite = usersAtStart[0]
 
-      await api
-        .post("/api/blogs")
-        .send(blogToAdd)
-        .expect(201)
-        .expect("Content-Type", /application\/json/);
+    const blogToAdd = {
+      title: "Type warlords",
+      author: "Robert C. Martins",
+      url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
+      likes: 20,
+      userId: userToWrite.id
+    };
 
-      const blogsToEnd = await helper.blogsInDB();
-      expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length + 1);
+    await api
+      .post("/api/blogs")
+      .send(blogToAdd)
+      .expect(201)
+    .expect("Content-Type", /application\/json/);
+  
+    const usersAtEnd = await helper.usersInDB()
+    expect(usersAtEnd[0].blogs).toHaveLength(userToWrite.blogs.length + 1);
 
-      const titles = blogsToEnd.map((b) => b.title);
-      expect(titles).toContain("Type warlords");
-    });
+    const blogsToEnd = await helper.blogsInDB();
+    expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length + 1);
 
-    test("makes likes property 0 if not given explicitly", async () => {
-      const blogToAdd = {
-        title: "Type warlords",
-        author: "Robert C. Martins",
-        url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
-      };
+    const titles = blogsToEnd.map((b) => b.title);
+    expect(titles).toContain("Type warlords");
+  });
 
-      const response = await api
-        .post("/api/blogs")
-        .send(blogToAdd)
-        .expect(201)
-        .expect("Content-Type", /application\/json/);
+  test("makes likes property 0 if not given explicitly", async () => {
+    const usersAtStart = await helper.usersInDB();
+    const userToWrite = usersAtStart[0];
 
-      const blogsToEnd = await helper.blogsInDB();
-      expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length + 1);
+    const blogToAdd = {
+      title: "Type warlords",
+      author: "Robert C. Martins",
+      url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
+      userId: userToWrite.id
+    };
 
-      expect(response.body.likes).toBe(0);
-    });
+    const response = await api
+      .post("/api/blogs")
+      .send(blogToAdd)
+      .expect(201)
+      .expect("Content-Type", /application\/json/);
+    
+    const usersAtEnd = await helper.usersInDB();
+    expect(usersAtEnd[0].blogs).toHaveLength(userToWrite.blogs.length + 1);
 
-    test('does not add blog if "title" or "url" properties are missing', async () => {
-      const blogToAdd = {
-        //   title: "",
-        author: "Robert C. Martins",
-        //   url: "",
-        likes: 20,
-      };
+    const blogsToEnd = await helper.blogsInDB();
+    expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length + 1);
 
-      await api.post("/api/blogs").send(blogToAdd).expect(400);
+    expect(response.body.likes).toBe(0);
+  });
 
-      const blogsToEnd = await helper.blogsInDB();
-      expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length);
-    });
+  test('does not add blog if "title" or "url" properties are missing', async () => {
+    const usersAtStart = await helper.usersInDB();
+    const userToWrite = usersAtStart[0];
+
+    const blogToAdd = {
+      //   title: "",
+      author: "Robert C. Martins",
+      //   url: "",
+      likes: 20,
+      userId: userToWrite.id
+    };
+
+    await api.post("/api/blogs").send(blogToAdd).expect(400);
+
+    const usersAtEnd = await helper.usersInDB();
+    expect(usersAtEnd[0].blogs).toHaveLength(userToWrite.blogs.length);
+
+    const blogsToEnd = await helper.blogsInDB();
+    expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length);
+  });
 })
 
 
@@ -133,15 +163,6 @@ describe('update of a blog', () => {
 
 
 describe('when there is initially one user in db', () => {
-  beforeEach(async () => {
-    await User.deleteMany({})
-
-    const passwordHash = await bcrypt.hash('sekret', 10)
-    const user = new User({ username: 'root', passwordHash })
-
-    await user.save()
-  })
-
   test('creation succeeds with a fresh username', async () => {
     const usersAtStart = await helper.usersInDB()
 

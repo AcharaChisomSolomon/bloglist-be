@@ -3,15 +3,15 @@ const mongoose = require("mongoose");
 const blogSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
+    required: [true, 'title is required'],
   },
   author: String,
   url: {
     type: String,
-    required: true,
+    required: [true, 'url is required'],
   },
   likes: Number,
-  userId: {
+  user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }
