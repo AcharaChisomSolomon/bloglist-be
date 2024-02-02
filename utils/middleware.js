@@ -1,4 +1,5 @@
 const logger = require('./logger')
+const jwt = require('jsonwebtoken')
 
 const errorHandler = (error, request, response, next) => {
     logger.error(error.message)
@@ -24,7 +25,18 @@ const tokenExtractor = (request, response, next) => {
     next()
 }
 
+const userExtractor = (request, response, next) => {
+    let authorization = request.get("authorization");
+    if (authorization && authorization.startsWith("Bearer ")) {
+        const decodedToken = jwt.verify(request.token, process.env.SECRET);
+        request.user = decodedToken
+    }
+
+    next()
+}
+
 module.exports = {
     errorHandler,
-    tokenExtractor
+    tokenExtractor,
+    userExtractor
 }

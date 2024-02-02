@@ -133,24 +133,52 @@ describe('addition of a new blog', () => {
     const blogsToEnd = await helper.blogsInDB();
     expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length);
   });
+
+  test('does not add blog if token is not provided', async () => {
+    const usersAtStart = await helper.usersInDB();
+    const userToWrite = usersAtStart[0];
+
+    const blogToAdd = {
+      title: "Type warlords",
+      author: "Robert C. Martins",
+      url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
+    };
+
+    await api
+      .post("/api/blogs")
+      .send(blogToAdd)
+      .expect(401)
+      .expect("Content-Type", /application\/json/);
+
+    const usersAtEnd = await helper.usersInDB();
+    expect(usersAtEnd[0].blogs).toHaveLength(userToWrite.blogs.length);
+
+    const blogsToEnd = await helper.blogsInDB();
+    expect(blogsToEnd).toHaveLength(helper.listWithManyBlogs.length);
+  })
 })
 
 
 describe('deletion of a blog', () => {
     test('succeeds with statuscode 204 if id is valid', async () => {
-        const blogsAtStart = await helper.blogsInDB()
-        const blogToDelete = blogsAtStart[0]
+    const blogsAtStart = await helper.blogsInDB()
+    const blogToDelete = blogsAtStart[0]
+    
+    const loginInfo = await api
+      .post("/api/login")
+      .send({ username: 'root', password: "sekret" });
 
-        await api
-            .delete(`/api/blogs/${blogToDelete.id}`)
-            .expect(204)
-        
-        const blogsAtEnd = await helper.blogsInDB()
-        expect(blogsAtEnd).toHaveLength(helper.listWithManyBlogs.length - 1)
+    await api
+      .delete(`/api/blogs/${blogToDelete.id}`)
+      .set("Authorization", `Bearer ${loginInfo.body.token}`)
+      .expect(204);
+    
+    const blogsAtEnd = await helper.blogsInDB()
+    expect(blogsAtEnd).toHaveLength(helper.listWithManyBlogs.length - 1)
 
-        const titles = blogsAtEnd.map(b => b.title)
-        expect(titles).not.toContain(blogToDelete.title)
-    })
+    const titles = blogsAtEnd.map(b => b.title)
+    expect(titles).not.toContain(blogToDelete.title)
+  })
 })
 
 

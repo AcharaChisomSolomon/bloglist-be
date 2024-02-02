@@ -38,8 +38,25 @@ blogsRouter.post("/", async (request, response, next) => {
 
 
 blogsRouter.delete('/:id', async (request, response, next) => {
-  const deletedBlog = await Blog.findByIdAndDelete(request.params.id)
-  response.status(204).json(deletedBlog)
+  const tokenUser = request.user
+  const blog = await Blog.findById(request.params.id)
+  const blogUserId = blog.user.toString()
+
+  if (tokenUser.id === blogUserId) {
+    const deletedBlog = await Blog.findByIdAndDelete(request.params.id);
+
+    const user = await User.findById(blogUserId)
+    user.blogs = user.blogs.filter(b => {
+      return b.toString() !== request.params.id;
+    })
+    await user.save()
+
+    response.status(204).json(deletedBlog);
+  } else {
+    response
+      .status(400)
+      .json({ error: 'You are not the user of the blog you are about to delete' })
+  }
 })
 
 
