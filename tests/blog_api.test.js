@@ -18,7 +18,7 @@ beforeEach(async () => {
 
   const newUser = await user.save();
 
-  const blogObjects = helper.listWithManyBlogs.map(b => new Blog({ ...b, userId: newUser._id }))
+  const blogObjects = helper.listWithManyBlogs.map(b => new Blog({ ...b, user: newUser._id}))
   for (let b of blogObjects) {
     const newBlog = await b.save()
     newUser.blogs = newUser.blogs.concat(newBlog._id)
@@ -47,17 +47,21 @@ describe('addition of a new blog', () => {
     const usersAtStart = await helper.usersInDB()
     const userToWrite = usersAtStart[0]
 
+    const loginInfo = await api
+      .post("/api/login")
+      .send({ username: userToWrite.username, password: "sekret" });
+
     const blogToAdd = {
       title: "Type warlords",
       author: "Robert C. Martins",
       url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
       likes: 20,
-      userId: userToWrite.id
     };
 
     await api
       .post("/api/blogs")
       .send(blogToAdd)
+      .set('Authorization', `Bearer ${loginInfo.body.token}`)
       .expect(201)
     .expect("Content-Type", /application\/json/);
   
@@ -75,16 +79,20 @@ describe('addition of a new blog', () => {
     const usersAtStart = await helper.usersInDB();
     const userToWrite = usersAtStart[0];
 
+    const loginInfo = await api
+      .post("/api/login")
+      .send({ username: userToWrite.username, password: "sekret" });
+
     const blogToAdd = {
       title: "Type warlords",
       author: "Robert C. Martins",
       url: "https://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
-      userId: userToWrite.id
     };
 
     const response = await api
       .post("/api/blogs")
       .send(blogToAdd)
+      .set("Authorization", `Bearer ${loginInfo.body.token}`)
       .expect(201)
       .expect("Content-Type", /application\/json/);
     
@@ -101,6 +109,10 @@ describe('addition of a new blog', () => {
     const usersAtStart = await helper.usersInDB();
     const userToWrite = usersAtStart[0];
 
+    const loginInfo = await api
+      .post("/api/login")
+      .send({ username: userToWrite.username, password: "sekret" });
+
     const blogToAdd = {
       //   title: "",
       author: "Robert C. Martins",
@@ -109,7 +121,11 @@ describe('addition of a new blog', () => {
       userId: userToWrite.id
     };
 
-    await api.post("/api/blogs").send(blogToAdd).expect(400);
+    await api
+      .post("/api/blogs")
+      .send(blogToAdd)
+      .set("Authorization", `Bearer ${loginInfo.body.token}`)
+      .expect(400);
 
     const usersAtEnd = await helper.usersInDB();
     expect(usersAtEnd[0].blogs).toHaveLength(userToWrite.blogs.length);
